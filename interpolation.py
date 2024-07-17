@@ -18,7 +18,8 @@ parser.add_argument('--folder_lq', type=str, default="all_HR_no_overlaped_left_0
 parser.add_argument('--folder_gt', type=str, default=None, help='input ground-truth test image folder')
 parser.add_argument('--order', type=int, default=3, help='interpolation order')
 parser.add_argument('--windows_size', type=int, default=8, help='window size')
-parser.add_argument('--WI_path', default="datasets/whole_images/RGBNED.tif", type=str, help='Path to the whole image')
+parser.add_argument('--WI_downsampled_path', default="datasets/whole_images/downsampled_rgbned.tif", type=str, help='Path to the whole image')
+parser.add_argument('--WI_gt_path', default="datasets/whole_images/modified_rgbned.tif", type=str, help='Path to the whole image')
 args = parser.parse_args()
 
 def interpolation_patches(args):
@@ -81,15 +82,17 @@ def interpolation_patches(args):
 def interpolation_WI(args):
 
     # Read image
-    img_lq = tifffile.imread(args.WI_path)
+    img_lq = tifffile.imread(args.WI_downsampled_path)
+    #img_lq = (img_lq * 65535.0).round().astype(np.uint16)
+    if img_lq.shape[0] == 6:
+        img_lq = np.transpose(img_lq, (1, 2, 0))
 
-    #output = ndimage.zoom(np.squeeze(img_lq[...]), args.scale, order=args.order) # Extract the first channel and remove the last dimension
     output0 = ndimage.zoom(np.squeeze(img_lq[...,0]), args.scale, order=args.order) # Extract the first channel and remove the last dimension
     output1 = ndimage.zoom(np.squeeze(img_lq[...,1]), args.scale, order=args.order) # Extract the second channel and remove the last dimension
     output2 = ndimage.zoom(np.squeeze(img_lq[...,2]), args.scale, order=args.order) # Extract the third channel and remove the last dimension
     output3 = ndimage.zoom(np.squeeze(img_lq[...,3]), args.scale, order=args.order) # Extract the fourth channel and remove the last dimension
     output4 = ndimage.zoom(np.squeeze(img_lq[...,4]), args.scale, order=args.order) # Extract the fifth channel and remove the last dimension
-    output5 = ndimage.zoom(np.squeeze(img_lq[...,5]), args.scale, order=args.order) # Extract the sixth channel and remove the last dimension"""
+    output5 = ndimage.zoom(np.squeeze(img_lq[...,5]), args.scale, order=args.order) # Extract the sixth channel and remove the last dimension
     
     output0 = np.expand_dims(output0, axis=2) # Add third dimensions  
     output1 = np.expand_dims(output1, axis=2) # Add third dimensions  
@@ -106,6 +109,15 @@ def interpolation_WI(args):
     # Save the concatenated array as a TIFF file
     output_file = os.path.join(f'results/interpolation_WI_order{args.order}.tif')
     tifffile.imsave(output_file, output)
+
+    # Evaluate psnr
+    if args.WI_gt_path is not None:
+        img_gt = tifffile.imread(args.WI_gt_path)
+        #img_gt = (img_gt * 65535.0).round().astype(np.uint16)
+        if img_gt.shape[0] == 6:
+            img_gt = np.transpose(img_gt, (1, 2, 0))             
+        psnr = utils.calculate_psnr(output, img_gt, border=args.scale)
+        print('PSNR: ', psnr)
 
 def get_image_pair(args, path):
     (imgname, imgext) = os.path.splitext(os.path.basename(path))
