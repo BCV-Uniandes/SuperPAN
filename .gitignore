@@ -1,3 +1,5 @@
 results/
 visualizations/
 prompt_main_test_swinir.txt
+datasets
+__pycache__/
